@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -41,6 +42,10 @@ type AppStatsdClientParams struct {
 //     import "statsd"
 //     client := statsd.New('localhost', 8125)
 func New(app string, statsdhost string, statsdport int, loghost string, logport int) *AppStatsdClient {
+	if strings.Contains(app, ".") {
+		panic("appstatsd app name cannot containt dots.")
+	}
+
 	client := AppStatsdClient{
 		App:          app,
 		StatsDParams: AppStatsdClientParams{Host: statsdhost, Port: statsdport},
@@ -194,7 +199,7 @@ func (client *AppStatsdClient) SendStats(data map[string]string, sampleRate floa
 	}
 
 	for k, v := range sampledData {
-		update_string := fmt.Sprintf("%s:%s", k, v)
+		update_string := fmt.Sprintf("%s.%s:%s", client.App, k, v)
 		_, err := fmt.Fprintf(client.StatsDParams.conn, update_string)
 		if err != nil {
 			log.Println(err)
