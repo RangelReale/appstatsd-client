@@ -103,6 +103,10 @@ func (client *AppStatsdClient) Timing(stat string, time int64) {
 	client.SendStats(stats, 1)
 }
 
+func (client *AppStatsdClient) TimingDuration(stat string, t time.Duration) {
+	client.Timing(stat, int64(t/time.Millisecond))
+}
+
 // Log timing information (in milliseconds) with sampling
 //
 // Usage:
@@ -122,6 +126,10 @@ func (client *AppStatsdClient) TimingWithSampleRate(stat string, time int64, sam
 	updateString := fmt.Sprintf("%d|ms", time)
 	stats := map[string]string{stat: updateString}
 	client.SendStats(stats, sampleRate)
+}
+
+func (client *AppStatsdClient) TimingWithSampleRateDuration(stat string, t time.Duration, sampleRate float32) {
+	client.TimingWithSampleRate(stat, int64(t/time.Millisecond), sampleRate)
 }
 
 // Increments one stat counter without sampling
