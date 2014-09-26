@@ -12,10 +12,10 @@ func main() {
 
 	for {
 		client.Log(appstatsdclient.WARNING, fmt.Sprintf("First warning"))
-		client.Increment("conn.proj#1.ct")
+		client.Increment("conn.proj#1.ct", 1)
 		time.Sleep(3 * time.Second)
 		client.Timing("conn.dr", 1250)
-		client.Increment("proc#chkstatus#t1.proj#1.ct")
+		client.Increment("proc#chkstatus#t1.proj#1.ct", 1)
 		time.Sleep(1 * time.Second)
 		client.Log(appstatsdclient.ERROR, fmt.Sprintf("An errror"))
 	}

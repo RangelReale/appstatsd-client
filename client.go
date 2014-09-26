@@ -23,13 +23,13 @@ const (
 )
 
 // The StatsdClient type defines the relevant properties of a StatsD connection.
-type AppStatsdClient struct {
+type Client struct {
 	App          string
-	StatsDParams AppStatsdClientParams
-	LogParams    AppStatsdClientParams
+	StatsDParams ClientParams
+	LogParams    ClientParams
 }
 
-type AppStatsdClientParams struct {
+type ClientParams struct {
 	Host string
 	Port int
 	conn net.Conn
@@ -41,26 +41,26 @@ type AppStatsdClientParams struct {
 //
 //     import "statsd"
 //     client := statsd.New('localhost', 8125)
-func New(app string, statsdhost string, statsdport int, loghost string, logport int) *AppStatsdClient {
+func New(app string, statsdhost string, statsdport int, loghost string, logport int) *Client {
 	if strings.Contains(app, ".") {
 		panic("appstatsd app name cannot containt dots.")
 	}
 
-	client := AppStatsdClient{
+	client := Client{
 		App:          app,
-		StatsDParams: AppStatsdClientParams{Host: statsdhost, Port: statsdport},
-		LogParams:    AppStatsdClientParams{Host: loghost, Port: logport},
+		StatsDParams: ClientParams{Host: statsdhost, Port: statsdport},
+		LogParams:    ClientParams{Host: loghost, Port: logport},
 	}
 	client.Open()
 	return &client
 }
 
-func NewLocal(app string) *AppStatsdClient {
+func NewLocal(app string) *Client {
 	return New(app, "localhost", 8125, "localhost", 8126)
 }
 
 // Method to open udp connection, called by default client factory
-func (client *AppStatsdClient) Open() {
+func (client *Client) Open() {
 	statsdConnectionString := fmt.Sprintf("%s:%d", client.StatsDParams.Host, client.StatsDParams.Port)
 	statsdconn, err := net.Dial("udp", statsdConnectionString)
 	if err != nil {
@@ -77,7 +77,7 @@ func (client *AppStatsdClient) Open() {
 }
 
 // Method to close udp connection
-func (client *AppStatsdClient) Close() {
+func (client *Client) Close() {
 	client.StatsDParams.conn.Close()
 	client.LogParams.conn.Close()
 }
@@ -97,13 +97,13 @@ func (client *AppStatsdClient) Close() {
 //     t2 := time.Now()
 //     duration := int64(t2.Sub(t1)/time.Millisecond)
 //     client.Timing("foo.time", duration)
-func (client *AppStatsdClient) Timing(stat string, time int64) {
+func (client *Client) Timing(stat string, time int64) {
 	updateString := fmt.Sprintf("%d|ms", time)
 	stats := map[string]string{stat: updateString}
 	client.SendStats(stats, 1)
 }
 
-func (client *AppStatsdClient) TimingDuration(stat string, t time.Duration) {
+func (client *Client) TimingDuration(stat string, t time.Duration) {
 	client.Timing(stat, int64(t/time.Millisecond))
 }
 
@@ -122,13 +122,13 @@ func (client *AppStatsdClient) TimingDuration(stat string, t time.Duration) {
 //     t2 := time.Now()
 //     duration := int64(t2.Sub(t1)/time.Millisecond)
 //     client.TimingWithSampleRate("foo.time", duration, 0.2)
-func (client *AppStatsdClient) TimingWithSampleRate(stat string, time int64, sampleRate float32) {
+func (client *Client) TimingWithSampleRate(stat string, time int64, sampleRate float32) {
 	updateString := fmt.Sprintf("%d|ms", time)
 	stats := map[string]string{stat: updateString}
 	client.SendStats(stats, sampleRate)
 }
 
-func (client *AppStatsdClient) TimingWithSampleRateDuration(stat string, t time.Duration, sampleRate float32) {
+func (client *Client) TimingWithSampleRateDuration(stat string, t time.Duration, sampleRate float32) {
 	client.TimingWithSampleRate(stat, int64(t/time.Millisecond), sampleRate)
 }
 
@@ -138,10 +138,10 @@ func (client *AppStatsdClient) TimingWithSampleRateDuration(stat string, t time.
 //
 //     import "statsd"
 //     client := statsd.New('localhost', 8125)
-//     client.Increment('foo.bar')
-func (client *AppStatsdClient) Increment(stat string) {
+//     client.Increment('foo.bar', 1)
+func (client *Client) Increment(stat string, amount int) {
 	stats := []string{stat}
-	client.UpdateStats(stats, 1, 1)
+	client.UpdateStats(stats, amount, 1)
 }
 
 // Increments one stat counter with sampling
@@ -151,9 +151,9 @@ func (client *AppStatsdClient) Increment(stat string) {
 //     import "statsd"
 //     client := statsd.New('localhost', 8125)
 //     client.Increment('foo.bar', 0.2)
-func (client *AppStatsdClient) IncrementWithSampling(stat string, sampleRate float32) {
+func (client *Client) IncrementWithSampling(stat string, amount int, sampleRate float32) {
 	stats := []string{stat}
-	client.UpdateStats(stats[:], 1, sampleRate)
+	client.UpdateStats(stats[:], amount, sampleRate)
 }
 
 // Decrements one stat counter without sampling
@@ -162,10 +162,10 @@ func (client *AppStatsdClient) IncrementWithSampling(stat string, sampleRate flo
 //
 //     import "statsd"
 //     client := statsd.New('localhost', 8125)
-//     client.Decrement('foo.bar')
-func (client *AppStatsdClient) Decrement(stat string) {
+//     client.Decrement('foo.bar', 1)
+func (client *Client) Decrement(stat string, amount int) {
 	stats := []string{stat}
-	client.UpdateStats(stats[:], -1, 1)
+	client.UpdateStats(stats[:], -1*amount, 1)
 }
 
 // Decrements one stat counter with sampling
@@ -175,13 +175,13 @@ func (client *AppStatsdClient) Decrement(stat string) {
 //     import "statsd"
 //     client := statsd.New('localhost', 8125)
 //     client.Decrement('foo.bar', 0.2)
-func (client *AppStatsdClient) DecrementWithSampling(stat string, sampleRate float32) {
+func (client *Client) DecrementWithSampling(stat string, amount int, sampleRate float32) {
 	stats := []string{stat}
-	client.UpdateStats(stats[:], -1, sampleRate)
+	client.UpdateStats(stats[:], -1*amount, sampleRate)
 }
 
 // Arbitrarily updates a list of stats by a delta
-func (client *AppStatsdClient) UpdateStats(stats []string, delta int, sampleRate float32) {
+func (client *Client) UpdateStats(stats []string, delta int, sampleRate float32) {
 	statsToSend := make(map[string]string)
 	for _, stat := range stats {
 		updateString := fmt.Sprintf("%d|c", delta)
@@ -191,7 +191,7 @@ func (client *AppStatsdClient) UpdateStats(stats []string, delta int, sampleRate
 }
 
 // Sends data to udp statsd daemon
-func (client *AppStatsdClient) SendStats(data map[string]string, sampleRate float32) {
+func (client *Client) SendStats(data map[string]string, sampleRate float32) {
 	sampledData := make(map[string]string)
 	if sampleRate < 1 {
 		r := rand.New(rand.NewSource(time.Now().Unix()))
@@ -216,12 +216,12 @@ func (client *AppStatsdClient) SendStats(data map[string]string, sampleRate floa
 }
 
 // Sends data to udp statsd daemon
-func (client *AppStatsdClient) Log(level LogLevel, message string) {
+func (client *Client) Log(level LogLevel, message string) {
 	client.LogId(level, "", message)
 }
 
 // Sends data to udp statsd daemon
-func (client *AppStatsdClient) LogId(level LogLevel, messageid string, message string) {
+func (client *Client) LogId(level LogLevel, messageid string, message string) {
 	update_string := fmt.Sprintf("%s:%d:%s:%s", client.App, level, messageid, message)
 	_, err := fmt.Fprintf(client.LogParams.conn, update_string)
 	if err != nil {
