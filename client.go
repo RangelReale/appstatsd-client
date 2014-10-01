@@ -216,7 +216,6 @@ func (client *Client) SendStats(data map[string]string, sampleRate float32) {
 
 	for k, v := range sampledData {
 		update_string := fmt.Sprintf("%s.%s:%s", client.App, k, v)
-		log.Printf("Sending %s", update_string)
 		_, err := fmt.Fprintf(client.StatsDParams.conn, update_string)
 		if err != nil {
 			log.Println(err)
