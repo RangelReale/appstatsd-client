@@ -32,7 +32,7 @@ type Client struct {
 type ClientParams struct {
 	Host string
 	Port int
-	conn net.Conn
+	conn *net.UDPConn
 }
 
 // Factory method to initialize udp connection
@@ -62,14 +62,22 @@ func NewLocal(app string) *Client {
 // Method to open udp connection, called by default client factory
 func (client *Client) Open() {
 	statsdConnectionString := fmt.Sprintf("%s:%d", client.StatsDParams.Host, client.StatsDParams.Port)
-	statsdconn, err := net.Dial("udp", statsdConnectionString)
+	statsdaddr, err := net.ResolveUDPAddr("udp", statsdConnectionString)
+	if err != nil {
+		log.Fatal(err)
+	}
+	statsdconn, err := net.DialUDP("udp", nil, statsdaddr)
 	if err != nil {
 		log.Println(err)
 	}
 	client.StatsDParams.conn = statsdconn
 
 	logConnectionString := fmt.Sprintf("%s:%d", client.LogParams.Host, client.LogParams.Port)
-	logconn, err := net.Dial("udp", logConnectionString)
+	logaddr, err := net.ResolveUDPAddr("udp", logConnectionString)
+	if err != nil {
+		log.Fatal(err)
+	}
+	logconn, err := net.DialUDP("udp", nil, logaddr)
 	if err != nil {
 		log.Println(err)
 	}
@@ -208,6 +216,7 @@ func (client *Client) SendStats(data map[string]string, sampleRate float32) {
 
 	for k, v := range sampledData {
 		update_string := fmt.Sprintf("%s.%s:%s", client.App, k, v)
+		log.Printf("Sending %s", update_string)
 		_, err := fmt.Fprintf(client.StatsDParams.conn, update_string)
 		if err != nil {
 			log.Println(err)
